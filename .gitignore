@@ -1,0 +1,84 @@
+# macOS
+.DS_Store
+
+# dataset files
+*.json
+*.csv
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+*.venv/
+.venv/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+*.ipr
+*.iws
+target/
+
+# Ruby
+*.gem
+*.rbc
+.bundle/
+vendor/bundle/
+log/
+tmp/
+*.log
+*.pid
+*.pid.lock
+
+# C/C++
+*.o
+*.obj
+*.so
+*.exe
+*.dll
+*.dylib
+*.out
+*.a
+*.lib
+
+# Go
+*.exe
+*.test
+*.out
+
+# Rust
+/target/
+
+# Logs
+*.log
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Operating System Files
+Thumbs.db
+
+# Other
+*.swp
+*.swo
+*.bak
+*.tmp
+*.old
+*.orig
