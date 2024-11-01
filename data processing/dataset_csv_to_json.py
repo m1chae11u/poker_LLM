@@ -74,6 +74,7 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
         hero_holding = parse_holding(row['hero_holding'])
         current_pot_size = row['pot_size']
         available_moves = parse_moves(row['available_moves'])
+        best_current_hand, hand_strength = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
 
         prompt = f"""You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision. 
 
@@ -81,7 +82,8 @@ Here is a game summary:
 
 The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips. 
 The player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.
-In this hand, your position is {hero_position}, and your holding is {hero_holding}.
+In this hand, your position is {hero_position}, and your holding is {hero_holding}. 
+You currently have {best_current_hand}. Your hand strength is {hand_strength}.
 Before the flop, {preflop_action_summary}. Assume that all other players that is not mentioned folded.
 
 Now it is your turn to make a move. 
@@ -215,6 +217,8 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             river_summary = ""
         current_pot_size = row['pot_size']
         available_moves = parse_available_moves(ast.literal_eval(row['available_moves']))
+        best_current_hand, hand_strength = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
+
         prompt = f"""You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision. 
 
 Here is a game summary: 
@@ -226,6 +230,8 @@ Before the flop, {preflop_action_summary}. Assume that all other players that is
 {flop_summary}
 {turn_summary}
 {river_summary}
+
+You currently have {best_current_hand}. Your hand strength is {hand_strength}.
 
 Now it is your turn to make a move. 
 To remind you, the current pot size is {current_pot_size} chips, and your holding is {hero_holding}.
