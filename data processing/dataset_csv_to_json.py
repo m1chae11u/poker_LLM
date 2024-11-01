@@ -7,8 +7,9 @@ def initialize_tokenizer(model_name=None):
     return tokenizer
 
 def sergio_custom_function(): # PLACEHOLDER, REPLACE WITH ACTUAL FUNCTION
-    current_best_hand = "a pair of nines"
-    return f"a {current_best_hand}"
+    current_best_hand = "one pair"
+    hand_description = "pair of nines"
+    return f" {current_best_hand} (a {hand_description})"
 
 random.seed(42)
 def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
@@ -363,9 +364,9 @@ def poker_csv_to_json(dataset: pd.DataFrame, preflop=True):
     return dataset_json
 
 if __name__ == "__main__":
-    CSV_FILENAME = "postflop_500k_train_set_25252525.csv"
+    CSV_FILENAME = "preflop_1k_test_set.csv"
     IS_PREFLOP = False
-    JSON_FILENAME = "temp_postflop_500k_train_set.json"
+    JSON_FILENAME = "sergio_validation_preflop_1k_test_set.json"
 
     dataset = pd.read_csv(CSV_FILENAME).fillna("")
     dataset_json = poker_csv_to_json(dataset, preflop=IS_PREFLOP)
@@ -373,3 +374,10 @@ if __name__ == "__main__":
         random.shuffle(dataset_json)
         json.dump(dataset_json, json_file, indent=2)
 
+# implementation todos:
+# 1. replace placeholder function (probably just import from another file also fine)
+# 2. make sure you change the placeholder function in both the preflop and postflop processing functions (sergio_custom_function())
+
+# validation todos:
+# 1. make sure preflop works
+# 2. make sure postflop works

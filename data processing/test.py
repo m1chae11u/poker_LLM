@@ -31,7 +31,6 @@ def test_tokenization():
         'pot_size': [130.5],
         'available_moves': ['["fold", "call", "raise 18.5bb"]'],
         'correct_decision': ['fold'],
-        'best_current_hand': ['a pair of nines'],
         'hand_strength': ['medium'],
         'evaluation_at': ['Flop'],
         'preflop_action': ['UTG/2.0/CO/call'],
@@ -52,7 +51,7 @@ def test_tokenization():
 
     # Define the sergio_custom_function placeholder
     def sergio_custom_function():
-        return 'a pair of nines'
+        return 'one pair (a pair of nines)'
 
     # Include the construct_prompt function with necessary modifications
     def construct_prompt_preflop(row: pd.Series):
