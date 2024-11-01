@@ -1,5 +1,14 @@
 import pandas as pd
 import ast,json,random
+from transformers import AutoTokenizer
+
+def initialize_tokenizer(model_name=None):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    return tokenizer
+
+def sergio_custom_function(): # PLACEHOLDER, REPLACE WITH ACTUAL FUNCTION
+    current_best_hand = "a pair of nines"
+    return f"a {current_best_hand}"
 
 random.seed(42)
 def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
@@ -67,36 +76,72 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
     def parse_moves(moves):
         moves_ls = ast.literal_eval(moves)
         return [f"raise {move.split('bb')[0]}" if 'bb' in move else move.upper() for move in moves_ls]
-    def construct_prompt(row: pd.Series):
+    def construct_prompt(row: pd.Series, tokenizer):
         # print(row)
         preflop_action_summary = parse_action(row['prev_line'])
         hero_position = row['hero_pos']
         hero_holding = parse_holding(row['hero_holding'])
         current_pot_size = row['pot_size']
         available_moves = parse_moves(row['available_moves'])
-        best_current_hand, hand_strength = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
+        best_current_hand = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
 
-        prompt = f"""You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision. 
+        # Build the prompt using segments with dynamic indicators
+        segments = []
+        segments.append(("You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
+        segments.append(("The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips.\nThe player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.\n", 0))
+        segments.append(("In this hand, your position is ", 0))
+        segments.append((hero_position, 1))
+        segments.append((", and your holding is ", 0))
+        segments.append((hero_holding, 1))
+        segments.append((".\n", 0))
+        segments.append(("You currently have ", 0))
+        segments.append((best_current_hand, 1))
+        segments.append((".\n", 0))
+        segments.append(("Before the flop, ", 0))
+        segments.append((preflop_action_summary, 1))
+        segments.append((". Assume that all other players that is not mentioned folded.\n\nNow it is your turn to make a move.\nTo remind you, the current pot size is ", 0))
+        segments.append((str(current_pot_size), 1))
+        segments.append((" chips, and your holding is ", 0))
+        segments.append((hero_holding, 1))
+        segments.append((".\n\nDecide on an action based on the strength of your hand on this board, your position, and actions before you. Do not explain your answer.\nYour optimal action is:", 0))
 
-Here is a game summary: 
+        # Build the full prompt and per-character dynamic indicators
+        prompt_text = ''
+        dynamic_char_indicators = []
+        for segment in segments:
+            text, is_dynamic = segment
+            prompt_text += text
+            dynamic_char_indicators.extend([is_dynamic]*len(text))
+        
+        # Tokenize the prompt
+        encoding = tokenizer(prompt_text, return_offsets_mapping=True, add_special_tokens=False)
+        tokens = encoding.tokens()
+        offsets = encoding.offset_mapping
 
-The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips. 
-The player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.
-In this hand, your position is {hero_position}, and your holding is {hero_holding}. 
-You currently have {best_current_hand}. Your hand strength is {hand_strength}.
-Before the flop, {preflop_action_summary}. Assume that all other players that is not mentioned folded.
+        # Build the binary_indicator
+        binary_indicator = []
+        for (start, end) in offsets:
+            # Check the dynamic indicators for this token's span
+            token_dynamic_chars = dynamic_char_indicators[start:end]
+            if any(token_dynamic_chars):
+                binary_indicator.append(1)
+            else:
+                binary_indicator.append(0)
 
-Now it is your turn to make a move. 
-To remind you, the current pot size is {current_pot_size} chips, and your holding is {hero_holding}.
+        correct_decision = f"raise {row['correct_decision'].split('bb')[0]}" if 'bb' in row['correct_decision'] else row['correct_decision'].lower()
 
-Decide on an action based on the strength of your hand on this board, your position, and actions before you. Do not explain your answer.
-Your optimal action is:"""
-
-        return prompt, available_moves, f"raise {row['correct_decision'].split('bb')[0]}" if 'bb' in row['correct_decision'] else row['correct_decision'].lower()
-    preflop_dataset_json = [{"instruction": construct_prompt(preflop_dataset.iloc[i])[0],
-                     "output": construct_prompt(preflop_dataset.iloc[i])[2]} 
-                     for i in range(preflop_dataset.shape[0])]
+        return prompt_text, available_moves, correct_decision, binary_indicator
     
+    model_name = "meta-llama/meta-llama-3.1-70b-instruct" # can move this to function parameters if needed
+    tokenizer = initialize_tokenizer(model_name=model_name)
+    preflop_dataset_json = [
+        {
+            "instruction": construct_prompt(preflop_dataset.iloc[i], tokenizer)[0],
+            "output": construct_prompt(preflop_dataset.iloc[i], tokenizer)[2],
+            "binary_indicator": construct_prompt(preflop_dataset.iloc[i], tokenizer)[3]
+        } 
+        for i in range(preflop_dataset.shape[0])
+    ]
     return preflop_dataset_json
 
 def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
@@ -197,7 +242,7 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             return f"{action_name} {int(round(float(amount)))}"
         return ", ".join([parse_bet_raise(move) if ("BET" in move.upper() or "RAISE" in move.upper()) else move.lower() for move in available_moves])
     
-    def construct_prompt(row: pd.Series):
+    def construct_prompt(row: pd.Seriesm, tokenizer):
         # relative_position_map = parse_relative_position(row['preflop_action'])  # Not needed
         # hero_position = relative_position_map[row['hero_position']]  # Directly use hero_position
         hero_position = row['hero_position']
@@ -217,33 +262,70 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             river_summary = ""
         current_pot_size = row['pot_size']
         available_moves = parse_available_moves(ast.literal_eval(row['available_moves']))
-        best_current_hand, hand_strength = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
+        best_current_hand = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
 
-        prompt = f"""You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision. 
+        # Build the prompt using segments with dynamic indicators
+        segments = []
+        segments.append(("You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
+        segments.append(("The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips.\nThe player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.\n", 0))
+        segments.append(("In this hand, your position is ", 0))
+        segments.append((hero_position, 1))
+        segments.append((", and your holding is ", 0))
+        segments.append((hero_holding, 1))
+        segments.append((".\nBefore the flop, ", 0))
+        segments.append((preflop_action_summary, 1))
+        segments.append((". Assume that all other players that is not mentioned folded.\n", 0))
+        if flop_summary:
+            segments.append((flop_summary + "\n", 1))
+        if turn_summary:
+            segments.append((turn_summary + "\n", 1))
+        if river_summary:
+            segments.append((river_summary + "\n", 1))
+        segments.append(("You currently have ", 0))
+        segments.append((best_current_hand, 1))
+        segments.append((".\n\nNow it is your turn to make a move.\nTo remind you, the current pot size is ", 0))
+        segments.append((str(current_pot_size), 1))
+        segments.append((" chips, and your holding is ", 0))
+        segments.append((hero_holding, 1))
+        segments.append((".\n\nDecide on an action based on the strength of your hand on this board, your position, and actions before you. Do not explain your answer.\nYour optimal action is:", 0))
 
-Here is a game summary: 
+        # Build the full prompt and per-character dynamic indicators
+        prompt_text = ''
+        dynamic_char_indicators = []
+        for segment in segments:
+            text, is_dynamic = segment
+            prompt_text += text
+            dynamic_char_indicators.extend([is_dynamic]*len(text))
 
-The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips. 
-The player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.
-In this hand, your position is {hero_position}, and your holding is {hero_holding}.
-Before the flop, {preflop_action_summary}. Assume that all other players that is not mentioned folded.
-{flop_summary}
-{turn_summary}
-{river_summary}
+        # Tokenize the prompt
+        encoding = tokenizer(prompt_text, return_offsets_mapping=True, add_special_tokens=False)
+        tokens = encoding.tokens()
+        offsets = encoding.offset_mapping
 
-You currently have {best_current_hand}. Your hand strength is {hand_strength}.
+        # Build the binary_indicator
+        binary_indicator = []
+        for (start, end) in offsets:
+            # Check the dynamic indicators for this token's span
+            token_dynamic_chars = dynamic_char_indicators[start:end]
+            if any(token_dynamic_chars):
+                binary_indicator.append(1)
+            else:
+                binary_indicator.append(0)
+        
+        correct_decision = row['correct_decision'].lower()
 
-Now it is your turn to make a move. 
-To remind you, the current pot size is {current_pot_size} chips, and your holding is {hero_holding}.
-
-Decide on an action based on the strength of your hand on this board, your position, and actions before you. Do not explain your answer. 
-Your optimal action is:"""
-        return prompt, row['correct_decision'].lower()
+        return prompt_text, correct_decision, binary_indicator
     
-    postflop_dataset_json = [{"instruction": construct_prompt(postflop_dataset.iloc[i])[0],
-                     "output": construct_prompt(postflop_dataset.iloc[i])[1]} 
-                     for i in range(postflop_dataset.shape[0])]
-    
+    model_name = "meta-llama/meta-llama-3.1-70b-instruct" # can move this to function parameters if needed
+    tokenizer = initialize_tokenizer(model_name=model_name)
+    postflop_dataset_json = [
+        {
+            "instruction": construct_prompt(postflop_dataset.iloc[i], tokenizer)[0],
+            "output": construct_prompt(postflop_dataset.iloc[i], tokenizer)[1],
+            "binary_indicator": construct_prompt(postflop_dataset.iloc[i], tokenizer)[2]
+        } 
+        for i in range(postflop_dataset.shape[0])
+    ]
     return postflop_dataset_json
 
 def poker_csv_to_json(dataset: pd.DataFrame, preflop=True):
