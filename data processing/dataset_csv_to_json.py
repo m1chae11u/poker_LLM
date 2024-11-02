@@ -13,6 +13,15 @@ def sergio_custom_function(): # PLACEHOLDER, REPLACE WITH ACTUAL FUNCTION
     hand_description = "pair of nines"
     return f"{current_best_hand} (a {hand_description})"
 
+def get_CoT_outline():
+    prompt = f"""
+Here's the strategy I want you to be using to help you inform your decisions in a poker hand.
+
+Think about the following step by step.
+1. Think about your range vs your opponent's range based on the actions on previous betting rounds. Is your opponent's range capped? Who has the range advantage? Who has the nut advantage?
+2. Think how much equity you have if you suspect you are behind. If you are on a draw or have no showdown value, is your hand worth bluffing?"""
+    return prompt
+
 random.seed(42)
 def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
     # TODO: No need to parse card now.
@@ -83,7 +92,9 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
         
         # Build the prompt using segments with dynamic indicators
         segments = []
-        segments.append(("You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
+        CoT_outline = get_CoT_outline()
+        segments.append((CoT_outline, 0))
+        segments.append(("\n\nYou are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
         segments.append(("The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips.\nThe player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.\n", 0))
         segments.append(("In this hand, your position is ", 0))
         segments.append((hero_position, 1))
@@ -269,26 +280,11 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
         # print(available_moves)
         best_current_hand = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
 
-#         prompt = f"""You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision. 
-
-# Here is a game summary: 
-
-# The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips. 
-# The player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.
-# In this hand, your position is {hero_position}, and your holding is {hero_holding}.
-# Before the flop, {preflop_action_summary}. Assume that all other players that is not mentioned folded.
-# {flop_summary}
-# {turn_summary}
-# {river_summary}
-
-# Now it is your turn to make a move. 
-# To remind you, the current pot size is {current_pot_size} chips, and your holding is {hero_holding}.
-
-# Decide on an action based on the strength of your hand on this board, your position, and actions before you. Do not explain your answer. 
-# Your optimal action is:"""
         # Build the prompt using segments with dynamic indicators
         segments = []
-        segments.append(("You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
+        CoT_outline = get_CoT_outline()
+        segments.append((CoT_outline, 0))
+        segments.append(("\n\nYou are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
         segments.append(("The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips.\nThe player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.\n", 0))
         segments.append(("In this hand, your position is ", 0))
         segments.append((hero_position, 1))
@@ -303,12 +299,12 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             segments.append((turn_summary + "\n", 1))
         if river_summary:
             segments.append((river_summary + "\n", 1))
-        segments.append(("You currently have ", 0))
-        segments.append((best_current_hand, 1))
         segments.append((".\n\nNow it is your turn to make a move.\nTo remind you, the current pot size is ", 0))
         segments.append((str(current_pot_size), 1))
         segments.append((" chips, and your holding is ", 0))
         segments.append((hero_holding, 1))
+        segments.append((". You currently have ", 0))
+        segments.append((best_current_hand, 1))
         segments.append((".\n\nDecide on an action based on the strength of your hand on this board, your position, and actions before you. Do not explain your answer.\nYour optimal action is:", 0))
 
         # Build the full prompt and per-character dynamic indicators
@@ -385,9 +381,9 @@ def poker_csv_to_json(dataset: pd.DataFrame, preflop=True):
     return dataset_json
 
 if __name__ == "__main__":
-    CSV_FILENAME = "/Users/mikel/Documents/Research/poker_LLM/data processing/preflop_60k_train_set.csv"
-    IS_PREFLOP = True
-    JSON_FILENAME = "new_ver_temp_michael_validation_preflop_60k_train_set.json"
+    CSV_FILENAME = "/Users/mikel/Documents/Research/poker_LLM/data processing/postflop_10k_test_set.csv"
+    IS_PREFLOP = False
+    JSON_FILENAME = "temp_michael_validation_postflop_10k_test_set.json"
 
     dataset = pd.read_csv(CSV_FILENAME).fillna("")
     dataset_json = poker_csv_to_json(dataset, preflop=IS_PREFLOP)
