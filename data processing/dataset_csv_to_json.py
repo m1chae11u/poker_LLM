@@ -1,15 +1,12 @@
 import pandas as pd
 import ast,json,random
 from transformers import AutoTokenizer
+from HandEvaluator import PokerHandEvaluator 
+
 
 def initialize_tokenizer(model_name=None):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return tokenizer
-
-def sergio_custom_function(): # PLACEHOLDER, REPLACE WITH ACTUAL FUNCTION
-    current_best_hand = "one pair"
-    hand_description = "pair of nines"
-    return f" {current_best_hand} (a {hand_description})"
 
 random.seed(42)
 def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
@@ -77,6 +74,7 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
     def parse_moves(moves):
         moves_ls = ast.literal_eval(moves)
         return [f"raise {move.split('bb')[0]}" if 'bb' in move else move.upper() for move in moves_ls]
+    
     def construct_prompt(row: pd.Series, tokenizer):
         # print(row)
         preflop_action_summary = parse_action(row['prev_line'])
@@ -84,7 +82,8 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
         hero_holding = parse_holding(row['hero_holding'])
         current_pot_size = row['pot_size']
         available_moves = parse_moves(row['available_moves'])
-        best_current_hand = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
+        evaluator = PokerHandEvaluator(row['hero_holding'],[])
+        best_current_hand, hand_description = evaluator.get_best_hand()
 
         # Build the prompt using segments with dynamic indicators
         segments = []
@@ -97,7 +96,9 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
         segments.append((".\n", 0))
         segments.append(("You currently have ", 0))
         segments.append((best_current_hand, 1))
-        segments.append((".\n", 0))
+        segments.append(("(", 0))
+        segments.append((hand_description, 1))
+        segments.append((").\n", 0))
         segments.append(("Before the flop, ", 0))
         segments.append((preflop_action_summary, 1))
         segments.append((". Assume that all other players that is not mentioned folded.\n\nNow it is your turn to make a move.\nTo remind you, the current pot size is ", 0))
@@ -243,7 +244,7 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             return f"{action_name} {int(round(float(amount)))}"
         return ", ".join([parse_bet_raise(move) if ("BET" in move.upper() or "RAISE" in move.upper()) else move.lower() for move in available_moves])
     
-    def construct_prompt(row: pd.Seriesm, tokenizer):
+    def construct_prompt(row: pd.Series, tokenizer):
         # relative_position_map = parse_relative_position(row['preflop_action'])  # Not needed
         # hero_position = relative_position_map[row['hero_position']]  # Directly use hero_position
         hero_position = row['hero_position']
@@ -263,8 +264,11 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             river_summary = ""
         current_pot_size = row['pot_size']
         available_moves = parse_available_moves(ast.literal_eval(row['available_moves']))
-        best_current_hand = sergio_custom_function() # placeholder code, Sergio, please modify this line after you finished implementing your function.
-
+        board = [row['board_flop'], row['board_turn'], row['board_river']]
+        # print(f"board {board}")
+        # print(f"hand {row['holding'][:2], row['holding'][2:]}")
+        evaluator = PokerHandEvaluator([row['holding'][:2], row['holding'][2:]], board)
+        best_current_hand, hand_description = evaluator.get_best_hand()
         # Build the prompt using segments with dynamic indicators
         segments = []
         segments.append(("You are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
@@ -284,7 +288,9 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             segments.append((river_summary + "\n", 1))
         segments.append(("You currently have ", 0))
         segments.append((best_current_hand, 1))
-        segments.append((".\n\nNow it is your turn to make a move.\nTo remind you, the current pot size is ", 0))
+        segments.append(("(", 0))
+        segments.append((hand_description, 1))
+        segments.append((").\n\nNow it is your turn to make a move.\nTo remind you, the current pot size is ", 0))
         segments.append((str(current_pot_size), 1))
         segments.append((" chips, and your holding is ", 0))
         segments.append((hero_holding, 1))
@@ -364,9 +370,9 @@ def poker_csv_to_json(dataset: pd.DataFrame, preflop=True):
     return dataset_json
 
 if __name__ == "__main__":
-    CSV_FILENAME = "preflop_1k_test_set.csv"
+    CSV_FILENAME = "./data/postflop_10k_test_set.csv"
     IS_PREFLOP = False
-    JSON_FILENAME = "sergio_validation_preflop_1k_test_set.json"
+    JSON_FILENAME = "sergio_validation_postflop_10k_test_set.json"
 
     dataset = pd.read_csv(CSV_FILENAME).fillna("")
     dataset_json = poker_csv_to_json(dataset, preflop=IS_PREFLOP)

@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import json
 from transformers import AutoTokenizer
+from HandEvaluator import PokerHandEvaluator 
 
 dir_of_this_script = os.path.dirname(os.path.abspath(__file__))
 path_to_config = os.path.join(dir_of_this_script, 'configs', 'config.json')
@@ -46,12 +47,10 @@ def test_tokenization():
     preflop_df = pd.DataFrame(sample_data)
     postflop_df = pd.DataFrame(sample_data)
 
-    # Replace the placeholder function in the main code
-    global sergio_custom_function
 
-    # Define the sergio_custom_function placeholder
-    def sergio_custom_function():
-        return 'one pair (a pair of nines)'
+    # # Define the sergio_custom_function placeholder
+    # def sergio_custom_function():
+    #     return 'one pair (a pair of nines)'
 
     # Include the construct_prompt function with necessary modifications
     def construct_prompt_preflop(row: pd.Series):
@@ -60,7 +59,9 @@ def test_tokenization():
         hero_position = row['hero_pos']
         hero_holding = row['hero_holding']
         current_pot_size = row['pot_size']
-        best_current_hand = sergio_custom_function()
+        board = [row['board_flop'], row['board_turn'], row['board_river']]
+        evaluator = PokerHandEvaluator(hero_holding,board)
+        best_current_hand, hand_description = evaluator.get_best_hand()
 
         # Build the prompt using segments with dynamic indicators
         segments = []
@@ -81,7 +82,9 @@ def test_tokenization():
         # Dynamic segment: best_current_hand, hand_strength
         segments.append(("You currently have ", 0))
         segments.append((best_current_hand, 1))
-        segments.append((".\n", 0))
+        segments.append(("( ", 0))
+        segments.append((hand_description, 1))
+        segments.append((").\n", 0))
 
         segments.append(("Before the flop, ", 0))
 
