@@ -10,11 +10,6 @@ def initialize_tokenizer(model_name=None):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return tokenizer
 
-def sergio_custom_function(): # PLACEHOLDER, REPLACE WITH ACTUAL FUNCTION
-    current_best_hand = "one pair"
-    hand_description = "pair of nines"
-    return f"{current_best_hand} (a {hand_description})"
-
 def get_CoT_outline():
     prompt = f"""
 Here's the strategy I want you to be using to help you inform your decisions in a poker hand.
