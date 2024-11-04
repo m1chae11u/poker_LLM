@@ -2,7 +2,6 @@ import unittest
 from HandEvaluator import PokerHandEvaluator  
 
 def test_poker_hand_evaluator():
-    # Define test scenarios with the specified board input format
     test_cases = [
         {
             "scenario": "Preflop - High Card",
@@ -55,7 +54,6 @@ def test_poker_hand_evaluator():
     ]
 
     for case in test_cases:
-        # Initialize evaluator based on preflop or postflop scenario
         evaluator = PokerHandEvaluator(case["hero_holding"], case["board"])
         
         best_hand, description = evaluator.get_best_hand()

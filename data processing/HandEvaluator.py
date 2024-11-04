@@ -114,10 +114,8 @@ class PokerHandEvaluator:
 
     def parse_holding_string(self, holding_str):
         """Parses a descriptive holding string like 'King of Diamond and King of Club' to ['Kd', 'Kc']."""
-        # Remove any square brackets or extra spaces
         holding_str = holding_str.replace("[", "").replace("]", "").strip()
         
-        # Split the string by ' and ' to separate the two cards
         cards = holding_str.split(" and ")
         parsed_holding = []
         for card in cards:
@@ -135,7 +133,6 @@ class PokerHandEvaluator:
         else:
             unique_ranks = sorted(set(self.get_card_value(card)[0] for card in cards), reverse=True)
             
-        # Add '1' for Ace-low straights
         if 14 in unique_ranks:
             unique_ranks.append(1)
 
