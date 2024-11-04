@@ -147,4 +147,6 @@ def test_tokenization():
     # For brevity, let's proceed to test only the preflop scenario
 
 if __name__ == "__main__":
-    test_tokenization()
+    # test_tokenization()
+    df = pd.read_csv("/Users/mikel/Documents/Research/poker_LLM/data processing/postflop_10k_test_set.csv")
+    print(df)
