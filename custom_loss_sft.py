@@ -19,6 +19,7 @@ class CustomSFTDataset(torch.utils.data.Dataset):
         instruction = example["instruction"]
         input_text = example["input"]
         output_text = example["output"]
+        binary_indicator = example["binary_indicator"]
 
         instruction_ids = self.tokenizer.encode(instruction, add_special_tokens=False)
         input_ids = self.tokenizer.encode(input_text, add_special_tokens=False)

@@ -1,10 +1,17 @@
 # dataset_csv_to_json.py
 
 import pandas as pd
-import ast,json,random
+import os,ast,json,random
 from transformers import AutoTokenizer
 from HandEvaluator import PokerHandEvaluator 
+from parse_contribution import *
 
+def vllm_env_setup():
+    dir_of_this_script = os.path.dirname(os.path.abspath(__file__))
+    path_to_config = os.path.join(dir_of_this_script, 'configs', 'config.json')
+    with open(path_to_config, 'r') as config_file:
+        config_data = json.load(config_file)
+    os.environ['HF_TOKEN'] = config_data["HF_TOKEN"]
 
 def initialize_tokenizer(model_name=None):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -20,6 +27,7 @@ Think about the following step by step.
     return prompt
 
 random.seed(42)
+
 def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
     # TODO: No need to parse card now.
     def parse_action(line):
@@ -78,7 +86,7 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
     def parse_moves(moves):
         moves_ls = ast.literal_eval(moves)
         return [f"raise {move.split('bb')[0]}" if 'bb' in move else move.upper() for move in moves_ls]
-    
+
     def construct_prompt(row: pd.Series, tokenizer):
         # print(row)
         preflop_action_summary = parse_action(row['prev_line'])
@@ -91,8 +99,8 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
 
         # Build the prompt using segments with dynamic indicators
         segments = []
-        CoT_outline = get_CoT_outline()
-        segments.append((CoT_outline, 0))
+        # CoT_outline = get_CoT_outline()
+        # segments.append((CoT_outline, 0))
         segments.append(("\n\nYou are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
         segments.append(("The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips.\nThe player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.\n", 0))
         segments.append(("In this hand, your position is ", 0))
@@ -137,18 +145,39 @@ def preflop_csv_to_json(preflop_dataset: pd.DataFrame):
                 binary_indicator.append(0)
 
         correct_decision = f"raise {row['correct_decision'].split('bb')[0]}" if 'bb' in row['correct_decision'] else row['correct_decision'].lower()
-
-        return prompt_text, available_moves, correct_decision, binary_indicator
+        hero_stack_size = parse_preflop_stack_size(row['prev_line'], starting_stack_size=100, position=row['hero_pos'])
+        def augment_output(hero_holding, hand_strength, current_pot_size, hero_position,
+                           hero_stack_size, correct_decision, stage="pre-flop"):
+            spr = int(round(hero_stack_size/current_pot_size,0))
+            if spr <= 3:
+                spr_level = "low"
+            elif spr <= 8:
+                spr_level = "medium"
+            else:
+                spr_level = "high"
+            output = ""
+            output += f"The game is currently at the stage of [{stage}]. "
+            output += f"My position is [{hero_position}], and my holding is [{hero_holding[1:-1]}]. "
+            output += f"My hand currently forms [{hand_strength.lower()}]. "
+            output += f"The current pot size is [{current_pot_size} chips], and my stack size left is [{hero_stack_size} chips]. "
+            output += f"The stack-to-pot ratio is [{spr_level}]. "
+            output += f"Given these information and the action history, my optimal decision is: {correct_decision}."
+            # print(output)
+            return output
+        output_decision = augment_output(hero_holding, best_current_hand, current_pot_size, hero_position,
+                                         hero_stack_size, correct_decision)
+        return prompt_text, available_moves, output_decision, binary_indicator
+    
     model_name = "meta-llama/meta-llama-3.1-70b-instruct" # can move this to function parameters if needed
     tokenizer = initialize_tokenizer(model_name=model_name)
-    preflop_dataset_json = [
-        {
-            "instruction": construct_prompt(preflop_dataset.iloc[i], tokenizer)[0],
-            "output": construct_prompt(preflop_dataset.iloc[i], tokenizer)[2],
-            "binary_indicator": construct_prompt(preflop_dataset.iloc[i], tokenizer)[3]
-        } 
-        for i in range(preflop_dataset.shape[0])
-    ]
+    preflop_dataset_json = []
+    for i in range(preflop_dataset.shape[0]):
+        one_result = construct_prompt(preflop_dataset.iloc[i], tokenizer)
+        preflop_dataset_json.append({
+            "instruction": one_result[0],
+            "output": one_result[2],
+            "binary_indicator": one_result[3]
+        })
     return preflop_dataset_json
 
 def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
@@ -259,9 +288,9 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
         return ", ".join([parse_bet_raise(move) if ("BET" in move.upper() or "RAISE" in move.upper()) else move.lower() for move in available_moves])
     
     def construct_prompt(row: pd.Series, tokenizer):
-        # relative_position_map = parse_relative_position(row['preflop_action'])  # Not needed
-        # hero_position = relative_position_map[row['hero_position']]  # Directly use hero_position
-        hero_position = row['hero_position']
+        relative_position_map = parse_relative_position(row['preflop_action'])  # Not needed
+        hero_position = relative_position_map[row['hero_position']]  # Directly use hero_position
+        relative_hero_position = row['hero_position']
         hero_holding = parse_holding(row['holding'])
         preflop_action_summary = parse_preflop_action(row['preflop_action']).replace("bb", " chips")
         flop_summary = f"The flop comes {parse_board(row['board_flop'])}, then {parse_postflop_action(row['preflop_action'], row['postflop_action'])['flop']}."
@@ -275,7 +304,7 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
             river_summary = f"The river comes {parse_board(row['board_river'])}, then {parse_postflop_action(row['preflop_action'], row['postflop_action'])['river']}."
         else:
             river_summary = ""
-        current_pot_size = row['pot_size']
+        current_pot_size = float(row['pot_size'])
         # print(row['Available_Moves'])
         available_moves = parse_available_moves(ast.literal_eval(row['available_moves']))
         board = [row['board_flop'], row['board_turn'], row['board_river']]
@@ -285,8 +314,8 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
         best_current_hand, hand_description = evaluator.get_best_hand()
         # Build the prompt using segments with dynamic indicators
         segments = []
-        CoT_outline = get_CoT_outline()
-        segments.append((CoT_outline, 0))
+        # CoT_outline = get_CoT_outline()
+        # segments.append((CoT_outline, 0))
         segments.append(("\n\nYou are a specialist in playing 6-handed No Limit Texas Holdem. The following will be a game scenario and you need to make the optimal decision.\n\nHere is a game summary:\n\n", 0))
         segments.append(("The small blind is 0.5 chips and the big blind is 1 chips. Everyone started with 100 chips.\nThe player positions involved in this game are UTG, HJ, CO, BTN, SB, BB.\n", 0))
         segments.append(("In this hand, your position is ", 0))
@@ -338,19 +367,48 @@ def postflop_csv_to_json(postflop_dataset: pd.DataFrame):
                 binary_indicator.append(0)
         
         correct_decision = row['correct_decision'].lower()
+        starting_stack = 100
+        hero_stack_size = starting_stack - calculate_player_contribution(preflop_action=row['preflop_action'], 
+                                                                         postflop_action=row['postflop_action'],
+                                                                         hero_position=row['hero_position'])
+        def augment_output(hero_holding, hand_strength, current_pot_size, hero_position,
+                           relative_hero_position, hero_stack_size, correct_decision, stage):
+            spr = int(round(hero_stack_size/current_pot_size,0))
+            relative_pos = "in position" if relative_hero_position == "IP" else "out of position"
+            if spr <= 3:
+                spr_level = "low"
+            elif spr <= 8:
+                spr_level = "medium"
+            else:
+                spr_level = "high"
+            output = ""
+            output += f"The game is currently at the stage of [{stage}]. "
+            output += f"My position is [{hero_position}]. I am relatively [{relative_pos}]. "
+            output += f"My holding is [{hero_holding[1:-1]}]. The board is {board}. "
+            output += f"My hand currently forms [{hand_strength.lower()}]. "
+            output += f"The current pot size is [{current_pot_size} chips], and my stack size left is [{hero_stack_size} chips]. "
+            output += f"The stack-to-pot ratio is [{spr_level}]. "
+            output += f"Given these information and the action history, my optimal decision is: {correct_decision}."
+            # print(output)
+            return output
+        output_decision = augment_output(hero_holding, best_current_hand, current_pot_size, hero_position, 
+                                         relative_hero_position, hero_stack_size, correct_decision, 
+                                         stage=row['evaluation_at'].lower())
+        # print(output_decision)
+        # raise ValueError
 
-        return prompt_text, correct_decision, binary_indicator
+        return prompt_text, output_decision, binary_indicator
 
     model_name = "meta-llama/meta-llama-3.1-70b-instruct" # can move this to function parameters if needed
     tokenizer = initialize_tokenizer(model_name=model_name)
-    postflop_dataset_json = [
-        {
-            "instruction": construct_prompt(postflop_dataset.iloc[i], tokenizer)[0],
-            "output": construct_prompt(postflop_dataset.iloc[i], tokenizer)[1],
-            "binary_indicator": construct_prompt(postflop_dataset.iloc[i], tokenizer)[2]
-        } 
-        for i in range(postflop_dataset.shape[0])
-    ]
+    postflop_dataset_json = []
+    for i in range(postflop_dataset.shape[0]):
+        one_result = construct_prompt(postflop_dataset.iloc[i], tokenizer)
+        postflop_dataset_json.append({
+            "instruction": one_result[0],
+            "output": one_result[1],
+            "binary_indicator": one_result[2]
+        })
     return postflop_dataset_json
 
 def poker_csv_to_json(dataset: pd.DataFrame, preflop=True):
@@ -388,25 +446,14 @@ def poker_csv_to_json(dataset: pd.DataFrame, preflop=True):
     return dataset_json
 
 if __name__ == "__main__":
-    CSV_FILENAME = "./data/postflop_10k_test_set.csv"
+    CSV_FILENAME = "/home/michael_lu/poker_LLM/data/postflop_500k_train_set_25252525.csv"
     IS_PREFLOP = False
-    JSON_FILENAME = "sergio_validation_preflop_1k_test_set.json"
+    JSON_FILENAME = "/home/michael_lu/poker_LLM/data/postflop_500k_train_set_25252525.json"
+
+    vllm_env_setup()
 
     dataset = pd.read_csv(CSV_FILENAME).fillna("")
     dataset_json = poker_csv_to_json(dataset, preflop=IS_PREFLOP)
     with open(JSON_FILENAME, 'w') as json_file:
         random.shuffle(dataset_json)
         json.dump(dataset_json, json_file, indent=2)
-
-# implementation todos for Sergio:
-# 1. replace placeholder function (probably just import from another file also fine)
-# 2. make sure you change the placeholder function in both the preflop and postflop processing functions (sergio_custom_function())
-
-# validation todos:
-# 1. make sure preflop works
-#       michael part: done
-#       sergio part: 
-# 2. make sure postflop works
-#       michael part: done
-#       sergio part: 
-
