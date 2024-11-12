@@ -14,9 +14,8 @@ custom dataset format:
 '''
 litgpt finetune_full path_to_gemma_2b_weights \
   --data JSON \
-  --data.json_path path/to/your/data.json \
-  --data.val_split_fraction 0.1 \
-  --out_dir out/custom-poker-model
+  --data.json_path /home/michael_lu/poker_LLM/data/formatted_for_lit_gpt/lit_gpt_custom_setup \
+  --out_dir /data/michael_lu/poker_LLM/litgpt
 
 
   or 
