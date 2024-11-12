@@ -1,1 +1,2 @@
 accelerate
+litgpt[all]
