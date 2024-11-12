@@ -3,14 +3,13 @@
 # task: we want to do supervised instruction finetuning
 
 '''
-custom poker dataset:
+custom dataset format:
 {
     instruction: "yadadada",
     input: "",
-    output: ""The game is currently at the stage of [pre-flop]. My position is [CO], and my holding is [Nine of Diamond and Nine of Club]. My hand currently forms [one pair]. The current pot size is [130.5 chips], and my stack size left is [86.0 chips]. The stack-to-pot ratio is [low]. Given these information and the action history, my optimal decision is: fold.""
+    output: "The game is currently at the stage of [pre-flop]. My position is [CO], and my holding is [Nine of Diamond and Nine of Club]. My hand currently forms [one pair]. The current pot size is [130.5 chips], and my stack size left is [86.0 chips]. The stack-to-pot ratio is [low]. Given these information and the action history, my optimal decision is: fold."
 }
 '''
-# step 1:
 
 '''
 litgpt finetune_full path_to_gemma_2b_weights \
