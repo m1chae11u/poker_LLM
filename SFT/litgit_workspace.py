@@ -104,32 +104,5 @@ CUDA_VISIBLE_DEVICES=7 litgpt finetune /data/michael_lu/poker_LLM/litgpt/checkpo
 
 for screen: FULL_finetuning
 
-CUDA_VISIBLE_DEVICES=4 litgpt finetune_full /data/michael_lu/poker_LLM/litgpt/checkpoints/google/gemma-2b \
-  --data JSON \
-  --data.json_path /home/michael_lu/poker_LLM/data/formatted_for_lit_gpt/lit_gpt_custom_setup/combined_train_set.json \
-  --data.val_split_fraction 0.0001 \
-  --out_dir /data/michael_lu/poker_LLM/litgpt/full_finetune_out \
-  --train.save_interval 500 \
-  --train.log_interval 50 \
-  --train.epochs 3 \
-  --train.max_steps 5 \
-  --train.global_batch_size 16 \
-  --eval.interval 200 \
-  --eval.initial_validation False
-
-temp
-
-CUDA_VISIBLE_DEVICES=4 litgpt finetune full /data/michael_lu/poker_LLM/litgpt/checkpoints/google/gemma-2b \
-  --data JSON \
-  --data.json_path /home/michael_lu/poker_LLM/data/formatted_for_lit_gpt/lit_gpt_custom_setup/combined_train_set.json \
-  --data.val_split_fraction 0.0001 \
-  --out_dir /data/michael_lu/poker_LLM/litgpt/full_finetune_out \
-  --train.save_interval 500 \
-  --train.log_interval 50 \
-  --train.epochs 3 \
-  --train.global_batch_size 16 \
-  --eval.interval 200 \
-  --eval.initial_validation False \
-  --devices 1
 '''
 # --train.max_steps 5 (temporary parameter used to validate)
