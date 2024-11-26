@@ -19,7 +19,7 @@ conda activate pokerenv
 
 # Install packages if not already installed
 echo "Installing packages..."
-conda install pytorch torchvision torchaudio -c pytorch -c nvidia -y
+conda install pytorch==2.4.1 torchvision==0.19.1 torchaudio -c pytorch -c nvidia -y
 conda install transformers pandas numpy=1.26.4 tqdm scikit-learn -y
 
 # Install additional Python packages from requirements.txt
