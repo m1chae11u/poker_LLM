@@ -2,9 +2,6 @@
 
 import os
 import json
-
-import os
-import json
 import tempfile
 import shutil
 
@@ -23,9 +20,17 @@ def modify_prompt_template(dir_path, section_to_modify, new_section_replacement)
     """
     modified_files = []
 
+    # List of specific files to modify
+    files_to_modify = {
+        "preflop_60k_train_set.json",
+        "postflop_500k_train_set_25252525.json",
+        "postflop_10k_test_set.json",
+        "preflop_1k_test_set.json"
+    }
+
     # Scan the directory
     for file_name in os.listdir(dir_path):
-        if file_name.endswith(".json"):  # Look for JSON files
+        if file_name in files_to_modify:  # Only process specified files
             file_path = os.path.join(dir_path, file_name)  # Full path to the file
             try:
                 # Load the JSON content
@@ -64,8 +69,7 @@ def modify_prompt_template(dir_path, section_to_modify, new_section_replacement)
 
 
 if __name__ == "__main__":
-    # modify dir path if working in diff directory.
-    dir_path = "/home/michael_lu/poker_LLM/data/formatted_for_lit_gpt/lit_gpt_custom_setup"
+    dir_path = "/data/sergio_peterson/data"
     section_to_modify = "Do not explain your answer.\nYour optimal action is:"
     new_section_replacement = "Explain your answer and output your optimal action."
 
